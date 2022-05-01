@@ -1,5 +1,5 @@
 // Yongnuo RF-603 sniffer
-// using an A7105 chip and a Arduino /pro/micro with 3.3V
+// using n A7105 chip and a Arduino /pro/micro with 3.3V
 // based on Flysky Tx Code by midelic on RCgroups.com
 //
 // created by RobotFreak & Seegel Systeme
@@ -10,7 +10,7 @@
 #include "a7105.h"
 #include "a7105_init.h" // register initialization, frequence table
 
-// channel to use (see channel_table )
+// used channels (see channel_table )
 const uint8_t CHANNEL = 16; /* 1 - 16 */
 
 const uint8_t RX_MODE_TRX = 1; // receive FOCUS & SHOOT commands from 603 in TRX mode
@@ -52,47 +52,12 @@ const int SCLK_pin = 13;
 const int CS_pin = 10;
 const int GIO2_pin = 2; // GIO2  pin
 
+
 //
-class LED {
-  public:
+const int RED_LED_pin = LED_BUILTIN;
 
-  LED(int pin = LED_BUILTIN)
-    : m_pin(pin)
-    , m_duration(0)
-    , m_start_millis(0)
-    , m_on(false)
-    {
-    }
-
-  void begin(void) {
-    pinMode(m_pin, OUTPUT);
-  }
-
-  void loop(void) {
-    if (m_on && ((millis() - m_start_millis) > m_duration)) {
-      off();
-    }
-  }
-
-  void on(unsigned long duration) {
-    digitalWrite(m_pin, HIGH);
-    m_duration = duration;
-    m_start_millis = millis();
-    m_on = true;
-  }
-
-  void off() {
-    digitalWrite(m_pin, LOW);
-    m_start_millis = 0;
-    m_on = false;
-  }
-  
-protected:
-  bool m_on;
-  int m_pin;
-  unsigned long m_duration;
-  unsigned long m_start_millis;
-};
+#define Red_LED_ON digitalWrite(RED_LED_pin, HIGH)
+#define Red_LED_OFF digitalWrite(RED_LED_pin, LOW)
 
 // ########## Variables #################
 //
@@ -101,13 +66,11 @@ EnhancedPhase enhanced_phase = EnhancedPhase0;
 // static uint8_t aid[4]; // for debug only
 uint8_t in[64];     // input buffer, the A7105 FIFO is 64 byte long
 volatile bool received_packet = false; // 
-unsigned long start_560_mode = 0; // start ticks of 560-mode, needed for timeout 
-unsigned long last_packet_time = 0;  // for debugging timing, time of last received packet
-int dataID = 0;     // current ID set, for debugging output
-bool received_parameter = false; // flag 
+unsigned long start_560_mode = 0;
+unsigned long last_packet_time = 0;  // for debugging timing
+int dataID = 0;     // current ID set for debugging output
+bool received_parameter = false;
 unsigned long timeout_560 = 500; // timeout for 560-mode 
-
-LED led;
 
 // 
 //
@@ -166,7 +129,6 @@ void send603Command(const uint8_t* cmd, int rep) {
   }
 }
 
-// commands in RF603-mode
 void sendFlash() {
 
   const uint8_t data[2] = {0x88, 0x77};
@@ -210,40 +172,41 @@ void sendParameters(const uint8_t* parameter) {
 
   SetDataID(1);
   a7105.SetPacketLength(2);
-
+ 
   a7105.Strobe(A7105_STANDBY);
   a7105.WriteRegister(PLL1_REG, channel_table[CHANNEL - 1]); // PLL1_REG set frequency
+  // (PLL1_REG, channel_table[CHANNEL - 1]);  // PLL1_REG set frequency
   a7105.Strobe(A7105_PLL);
 
-  // send wake-up (44 BB)
+  // write wake-up (44 BB)
   a7105.WriteData(2, data);
   a7105.Strobe(A7105_TX);
 
   delay(20);
 
-  // send switch cmd (32 CD)
+  // write switch cmd (32 CD)
   data[0] = 0x32; data[1] = 0xCD;
   a7105.WriteData(2, data);
   a7105.Strobe(A7105_TX);
 
   delay(20);
 
-  // switch to ID2 and set packet length to 4
+  // change to ID2 and packet length  4
   // a7105.Strobe(A7105_STANDBY);
   SetDataID(2);
   a7105.SetPacketLength(4);
 
-  // send parameter command (32 CD 0F 0D)
+  // write parameter command (32 CD 0F 0D)
   a7105.WriteData(4, data);
   a7105.Strobe(A7105_TX);
 
   delay(20);
 
-  // switch to ID3 and set packet length 15
+  // change to ID3 and packet length 15
   SetDataID(3);
   a7105.SetPacketLength(15);
 
-  // send parameters
+  // send parameter
   a7105.WriteData(15, parameter);
   a7105.Strobe(A7105_TX);
 
@@ -262,16 +225,16 @@ void sendParameters(const uint8_t* parameter) {
   received_packet = false; // clear flag
 }
 
-// starts the receiving mode
 void startRx() {
 
   a7105.Strobe(A7105_STANDBY);
-
-  // PLL1_REG set frequency
+ 
   if (RX_MODE == RX_MODE_TRX) {
+    //  _spi_write_adress(PLL1_REG, channel_table[CHANNEL - 1] - RX_CH_OFFSET + TRX_CH_OFFSET); // // PLL1_REG set frequency
     a7105.WriteRegister(PLL1_REG, channel_table[CHANNEL - 1] - RX_CH_OFFSET + TRX_CH_OFFSET);
   }
   else if (RX_MODE == RX_MODE_TX) {
+    // _spi_write_adress(PLL1_REG, channel_table[CHANNEL - 1] - RX_CH_OFFSET); // // PLL1_REG set frequency
     a7105.WriteRegister(PLL1_REG, channel_table[CHANNEL - 1] - RX_CH_OFFSET);
   }
  
@@ -284,7 +247,7 @@ void startRx() {
   // Serial.println("startRx");
 }
 
-// calculates and returns the crc for the parameter data
+// calculates and returns the crc for the data
 uint8_t calculate_crc(const uint8_t* data, int len) {
   uint8_t crc(0);
 
@@ -295,11 +258,11 @@ uint8_t calculate_crc(const uint8_t* data, int len) {
   return crc;
  }
 
-// GIO2 is programmed for FSYNC (register GPIO2_REG)
-// pin is high after recognising the preamble/ID and will go low
+// GIO2 is programmed for FSYNC (register 
+// pin is high after recognising the preamble/ID and will go to low
 // after receiving the last bit of the payload
 // -> a falling edge means: the A7105 had received a packet
-// ATTN: this is also true while transmitting!
+// ATTN: this is also true during transmitting!
 void GIO2_ISR() {
 
   received_packet = true;
@@ -318,7 +281,7 @@ void switch_to_603_mode(void) {
 }
 
 // process received data in RF603 modus
-void process_data_603() {
+void handle_data_603() {
 
   print_data(in, 2);
 
@@ -357,93 +320,45 @@ void print_power_level(uint8_t pwr) {
     Serial.print("+");
     Serial.print(half_steps[j]);
   }
-}
+ }
 
-
-void print_group(uint8_t grp) {
-  
-  const static char grp_id[8] = {'-', 'A', 'b', 'c', 'd', 'E', 'F', '?' };
-
-  // the group id is coded in bit [7..5]
-  //  A = 20, b = 40, ...  if grp = 0 -> 0F is send
-  // otherwise all other bits are 0
-  grp = (grp & 0xE0) >> 5;
-
-  Serial.print(grp_id[grp]);
-
-  /*
-  if (grp == 0x0F) Serial.print("- ");      // b000
-  else if (grp == 0x20) Serial.print("A "); // b001
-  else if (grp == 0x40) Serial.print("b "); // b010
-  else if (grp == 0x60) Serial.print("c "); // b011
-  else if (grp == 0x80) Serial.print("d "); // b100
-  else if (grp == 0xA0) Serial.print("E "); // b101
-  else if (grp == 0xC0) Serial.print("F "); // b110
-  */
-}
-
-// print out the parameters (as long as i know them)
 void decode_parameter(const uint8_t* data) {
 
-  // [0], [1] : code = 30 CF
+  Serial.print("   ");
+  if (data[2] == 0x0F) Serial.print("- ");
+  else if (data[2] == 0x20) Serial.print("A ");
+  else if (data[2] == 0x40) Serial.print("b ");
+  else if (data[2] == 0x60) Serial.print("c ");
+  else if (data[2] == 0x80) Serial.print("d ");
+  else if (data[2] == 0xA0) Serial.print("E ");
+  else if (data[2] == 0xC0) Serial.print("F ");
 
-  Serial.print("  Grp: ");
+  if (data[5] == 0) Serial.print(" -- ");
+  else if (data[5] == 1) Serial.print(" Multi ");
+  else if (data[5] == 2) Serial.print(" M ");
 
-  // [2] : group id
-  print_group(data[2]);
-
-  // [3] ?
-  Serial.print(" / [3]: ");
-  if ((data[3] & 0xF0) == 0) Serial.print("0");
-  Serial.print(data[3], HEX);
-  Serial.print(" / Z: ");
-
-  // [4] : Zoom
   Serial.print(data[4]);
-  Serial.print(" mm / Mode: ");
+  Serial.print("mm ");
 
-  // [5] : mode
-  if (data[5] == 0) Serial.print("--");
-  else if (data[5] == 1) Serial.print("Multi");
-  else if (data[5] == 2) Serial.print("M");
-
-  // [6], [7] ?
-  Serial.print(" / [6]: ");
-  if ((data[6] & 0xF0) == 0) Serial.print("0");
-  Serial.print(data[6], HEX);
-  Serial.print(" / [7]: ");
-  if ((data[7] & 0xF0) == 0) Serial.print("0");
-  Serial.print(data[7], HEX);
-
-  // [8], [9] : power levels
-  // M-mode
-  Serial.print(" / P: ");
+  Serial.print(" p: ");
   print_power_level(data[8]);
+  // Serial.print(data[8]);
   Serial.print(" - ");
-  // Multi-mode
   print_power_level(data[9]);
+  // Serial.print(data[9]);
 
-  // [10], [11] : Multi-mode parameter
-  Serial.print(" / m: ");
+  Serial.print(" m: ");
   Serial.print(data[10]);
   Serial.print("x");
   Serial.print(data[11]);
   Serial.print("Hz ");
-
-  // [12], [13] ?
-  Serial.print(" / [12]: ");
-  if ((data[12] & 0xF0) == 0) Serial.print("0");
-  Serial.print(data[12], HEX);
-  Serial.print(" / [13]: ");
-  if ((data[13] & 0xF0) == 0) Serial.print("0");
-  Serial.print(data[13], HEX);
 }
 
 // process received data in 560 mode
-void process_data_560() {
+void handle_data_560() {
 
-  // the YN560-TX send packets only once, with approx. 20 ms space
-  // the YN560 IV sends every packet upto 5 times with 1-2 ms space
+  // the YN560-TX send all packets only once, with approx. 20 ms space
+  // the YN560 IV sends every packet upto 4 times with only 1-2 ms space
   if (enhanced_phase == EnhancedPhase1) {
  
     print_data(in, 4);
@@ -479,7 +394,7 @@ void process_data_560() {
   }
   else if (enhanced_phase == EnhancedPhase2) {
 
-    // switch command 0x32 0xCD ?
+    // received switch command 0x32 0xCD ?
     // if yes, switch back to 306 mode
     if (in[0] == 0x32 && in[1] == 0xcd) {
       switch_to_603_mode();
@@ -494,21 +409,17 @@ void process_data_560() {
         const uint8_t crc = calculate_crc(in, 14);
       
         if (crc == in[14]) {
-          print_data(in, 2);
-          Serial.print(" ");
-          decode_parameter(in);
+          print_data(in, 15);
+          Serial.print(". ");
+          // decode_parameter(in);
         }
         else {
           Serial.print(" CRC failure");
         }
         received_parameter = true;
-        // set the flag, that we received the parameters
-        // the YN560 IV send the parameter package 5 times
-
-        led.on(500);
       }
       else {
-        // only for debugging: indicate, that we received another parameter packet
+        // only for debugging: indicate, that we received a channel parameter packet
         print_data(in, 3);
         Serial.print(" ... ");
       }
@@ -520,8 +431,8 @@ void process_data_560() {
       // switch_to_603_mode();
     }
     else {
-      // unknown packet id, output first two bytes of packet
-      print_data(in, 2);
+      // for debugging: output first two bytes of packet
+       print_data(in, 2);
     }
   }
 }
@@ -681,42 +592,17 @@ bool ProcessConsoleInput(void) {
       sendParameters(parameter);
     }
   }
-  // 'g=x' mit x = '-', 'a', ... 'f'
-  else if (strlen(consoleBuffer) == 3 && consoleBuffer[0] == 'g' && consoleBuffer[1] == '=') {
-    uint8_t grp = 0;
-
-    switch (consoleBuffer[2]) {
-      case '-' : grp = 0x0F; break;
-      case 'a' : grp = 0x20; break; // 0010
-      case 'b' : grp = 0x40; break; // 0100
-      case 'c' : grp = 0x60; break; // 0110
-      case 'd' : grp = 0x80; break; // 1000
-      case 'e' : grp = 0xA0; break; // 1010
-      case 'f' : grp = 0xC0; break; // 1100
-      default:break;
-    }
-
-    if (grp == 0){
-      // unkown parameter
-      Serial.println("invalid group parameter");
-    }
-    else {
-      parameter[2] = grp;
-      Serial.print("set group to ");
-      print_group(grp);
-      Serial.println(" ");
-    }
-  }
   else {
       Serial.println("invalid command");
     }
 }
 
+
 void setup() {
   
   Serial.begin(115200);
   
-  led.begin();
+  pinMode(RED_LED_pin, OUTPUT);
 
   a7105.Init(A7105_regs);
 
@@ -739,29 +625,38 @@ void setup() {
   startRx();
 
   ResetConsoleInput();
-  
 }
 
+//############ MAIN LOOP ##############
 void loop() {
-
-  led.loop();
 
   if (received_packet) {
 
     received_packet = false;
 
+    /*
+    uint8_t v = a7105.ReadRegister(MODE_REG);
+    Serial.print("mode = 0");
+    Serial.println(v & 0x03, HEX);
+    */
     a7105.Strobe(A7105_RST_RDPTR);
     a7105.ReadData(a7105.GetPacketLength(), in);
 
     startRx();
+
+    /*
+    uint8_t v = a7105.ReadRegister(MODE_REG);
+    Serial.print("TRSR/TRER = ");
+    Serial.println((v & 0x03), HEX);
+    */
 
     // process data
     Serial.print((millis() - last_packet_time));
     Serial.print("ms ");
     print_id();
  
-    if (rx_mode == mode_603) process_data_603();
-    else if (rx_mode == mode_560) process_data_560();
+    if (rx_mode == mode_603) handle_data_603();
+    else if (rx_mode == mode_560) handle_data_560();
 
     Serial.println(" ");
 
@@ -772,11 +667,11 @@ void loop() {
     startRx();
   }
   else {
-    HandleConsole();
-    received_packet = false;
+    // HandleConsole();
+    // received_packet = false;
   }
 
-  if (rx_mode == mode_560) {
+  if (rx_mode == mode_560){
     // timeout check, may be we missed a packet
     if ((millis() - start_560_mode) > timeout_560) {
       // timeout: switch back to 603 mode

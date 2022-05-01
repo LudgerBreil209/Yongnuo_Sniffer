@@ -4,8 +4,6 @@
 // yongnuo specific register setup
 // 0xff means do not set
 //
-// 3-wire SPI-interfaace
-//  
 // GIO2 is programmed as "packet received marker"
 
 static const uint8_t A7105_regs[] = {
