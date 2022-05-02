@@ -1,18 +1,17 @@
 /******************************************************* 
- *  A7102REG.h
-* RF Chip-A7102 Hardware Definitions
+ *  A7105.h
+* RF Chip-A7105 Hardware 
 *
-* * This file provides the constants associated with the
-* AMICCOM A7102 device.
+* The class CA7105 for interfacing the A7105 chip
 *
-********************************************************************/
-#ifndef _A7125REG_h_
-#define _A7125REG_h_
+*******************************************************/
+#ifndef _A7105_H_INCLUDE_
+#define _A7105_H_INCLUDE_
 
-// the SPI communication is done via the three user defined pins
+// the SPI communication is done via the 3 user defined pins
 // SDIpin, SCLKpin and CSpin
 // to be compatible with all boards the software uses the functions 
-// digitalRead / digitalWrite to access these pins.
+// digitalRead() / digitalWrite() to access these pins.
 // These functions are compatible with all boards, but may be for some
 // boards too slow. If you encountered timing problems, you can access
 // the pins directly via the appropiated ports. This is faster, but highly
@@ -96,6 +95,7 @@ class CA7105
 public:
 
   CA7105(int SDIpin, int SCLKpin, int CSpin);
+
   bool Init(const uint8_t* reg_init);
 
   void Reset(void);
@@ -146,4 +146,4 @@ protected:
 };
 
 
-#endif
+#endif // _A7105_H_INCLUDE_

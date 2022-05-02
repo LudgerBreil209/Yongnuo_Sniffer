@@ -10,7 +10,7 @@
 #include "a7105.h"
 #include "a7105_init.h" // register initialization, frequence table
 
-// used channels (see channel_table )
+// channel (see channel_table )
 const uint8_t CHANNEL = 16; /* 1 - 16 */
 
 const uint8_t RX_MODE_TRX = 1; // receive FOCUS & SHOOT commands from 603 in TRX mode
@@ -53,24 +53,17 @@ const int CS_pin = 10;
 const int GIO2_pin = 2; // GIO2  pin
 
 
-//
-const int RED_LED_pin = LED_BUILTIN;
-
-#define Red_LED_ON digitalWrite(RED_LED_pin, HIGH)
-#define Red_LED_OFF digitalWrite(RED_LED_pin, LOW)
-
 // ########## Variables #################
 //
 RXMode rx_mode = mode_603;
 EnhancedPhase enhanced_phase = EnhancedPhase0;
-// static uint8_t aid[4]; // for debug only
 uint8_t in[64];     // input buffer, the A7105 FIFO is 64 byte long
 volatile bool received_packet = false; // 
 unsigned long start_560_mode = 0;
 unsigned long last_packet_time = 0;  // for debugging timing
-int dataID = 0;     // current ID set for debugging output
+int dataID = 0;     // current ID set (for debugging output)
 bool received_parameter = false;
-unsigned long timeout_560 = 500; // timeout for 560-mode 
+unsigned long timeout_560 = _MODE_TIMEOUT_; // timeout for 560-mode 
 
 // 
 //
@@ -106,12 +99,10 @@ void SetDataID(int id) {
     if (p != nullptr) {
       a7105.WriteID(p);
       dataID = id;
-      // Serial.print("set DataID ");
-      // Serial.println(id);
     }
 }
 
-// send a command in RF603 mode
+// send a command in RF-603 mode
 // cmd = command bytes (2) to send
 // rep : repetition count
 void send603Command(const uint8_t* cmd, int rep) {
@@ -175,34 +166,33 @@ void sendParameters(const uint8_t* parameter) {
  
   a7105.Strobe(A7105_STANDBY);
   a7105.WriteRegister(PLL1_REG, channel_table[CHANNEL - 1]); // PLL1_REG set frequency
-  // (PLL1_REG, channel_table[CHANNEL - 1]);  // PLL1_REG set frequency
   a7105.Strobe(A7105_PLL);
 
-  // write wake-up (44 BB)
+  // send wake-up (44 BB)
   a7105.WriteData(2, data);
   a7105.Strobe(A7105_TX);
 
   delay(20);
 
-  // write switch cmd (32 CD)
+  // send switch mode cmd (32 CD)
   data[0] = 0x32; data[1] = 0xCD;
   a7105.WriteData(2, data);
   a7105.Strobe(A7105_TX);
 
   delay(20);
 
-  // change to ID2 and packet length  4
+  // change to ID2 and set packet length to 4
   // a7105.Strobe(A7105_STANDBY);
   SetDataID(2);
   a7105.SetPacketLength(4);
 
-  // write parameter command (32 CD 0F 0D)
+  // send parameter command (32 CD 0F 0D)
   a7105.WriteData(4, data);
   a7105.Strobe(A7105_TX);
 
   delay(20);
 
-  // change to ID3 and packet length 15
+  // change to ID3 and set packet length to 15
   SetDataID(3);
   a7105.SetPacketLength(15);
 
@@ -212,14 +202,14 @@ void sendParameters(const uint8_t* parameter) {
 
   delay(20);
 
-  // send switch command (32 CD)
+  // send switch mode command (32 CD)
   a7105.SetPacketLength(2);
   a7105.WriteData(2, data);
   a7105.Strobe(A7105_TX);
 
-  // switch back to iD1
   a7105.Strobe(A7105_STANDBY);
- 
+
+  // set data id to id_1
   SetDataID(1);
 
   received_packet = false; // clear flag
@@ -247,18 +237,17 @@ void startRx() {
   // Serial.println("startRx");
 }
 
-// calculates and returns the crc for the data
+// returns the crc for the data
 uint8_t calculate_crc(const uint8_t* data, int len) {
   uint8_t crc(0);
 
   for (int i = 0; i < len; i++) {
-    crc += *data;
-    data++;
+    crc += data[i];
   }
   return crc;
  }
 
-// GIO2 is programmed for FSYNC (register 
+// GIO2 is programmed for FSYNC
 // pin is high after recognising the preamble/ID and will go to low
 // after receiving the last bit of the payload
 // -> a falling edge means: the A7105 had received a packet
@@ -268,7 +257,7 @@ void GIO2_ISR() {
   received_packet = true;
 }
 
-// switch to RF603 mode
+// switch to RF-603 mode
 void switch_to_603_mode(void) {
 
   SetDataID(1);
@@ -277,26 +266,26 @@ void switch_to_603_mode(void) {
   rx_mode = mode_603;
   enhanced_phase = EnhancedPhase0;
   timeout_560 = _MODE_TIMEOUT_;
-  // Serial.println("switching to basic mode");
+  // Serial.println("switching to RF-603 mode");
 }
 
-// process received data in RF603 modus
+// process received data in RF-603 modus
 void handle_data_603() {
 
   print_data(in, 2);
 
-  // if received the switch command 0x32 0xCD
+  // if received the switch mode command 0x32 0xCD
   // switch to enhanced mode
   if (in[0] == 0x32 && in[1] == 0xCD) {
 
     rx_mode = mode_560;
-    
+
     enhanced_phase = EnhancedPhase1;
     SetDataID(2);
     a7105.SetPacketLength(4);
  
-    start_560_mode = millis();
-    // Serial.println("switching to enhanced mode");
+    start_560_mode = millis(); // get time for watchdog
+    // Serial.println("switching to 506-mode");
   }
 }
 
@@ -322,36 +311,39 @@ void print_power_level(uint8_t pwr) {
   }
  }
 
+void print_grp(uint8_t data) {
+  const char grp_char[8] = { '-', 'A', 'b', 'c', 'd', 'E', 'F', '?' };
+
+  const uint8_t g = ((data >> 5) & 0x7);
+
+  Serial.print(grp_char[g]); 
+}
+
 void decode_parameter(const uint8_t* data) {
 
-  Serial.print("   ");
-  if (data[2] == 0x0F) Serial.print("- ");
-  else if (data[2] == 0x20) Serial.print("A ");
-  else if (data[2] == 0x40) Serial.print("b ");
-  else if (data[2] == 0x60) Serial.print("c ");
-  else if (data[2] == 0x80) Serial.print("d ");
-  else if (data[2] == 0xA0) Serial.print("E ");
-  else if (data[2] == 0xC0) Serial.print("F ");
+  Serial.print(" Gr: ");
+ 
+  print_grp(data[2]);
 
-  if (data[5] == 0) Serial.print(" -- ");
-  else if (data[5] == 1) Serial.print(" Multi ");
-  else if (data[5] == 2) Serial.print(" M ");
-
+   Serial.print("  Zoom: ");
   Serial.print(data[4]);
-  Serial.print("mm ");
 
-  Serial.print(" p: ");
+  Serial.print("mm  Mode: ");
+
+  if (data[5] == 0) Serial.print("--");
+  else if (data[5] == 1) Serial.print("Multi");
+  else if (data[5] == 2) Serial.print("M");
+
+  Serial.print("  Power: ");
   print_power_level(data[8]);
-  // Serial.print(data[8]);
-  Serial.print(" - ");
+  Serial.print(" / ");
   print_power_level(data[9]);
-  // Serial.print(data[9]);
 
-  Serial.print(" m: ");
+  Serial.print("  Multi: ");
   Serial.print(data[10]);
   Serial.print("x");
   Serial.print(data[11]);
-  Serial.print("Hz ");
+  Serial.print("hz ");
 }
 
 // process received data in 560 mode
@@ -375,7 +367,8 @@ void handle_data_560() {
         SetDataID(3);
         a7105.SetPacketLength(16);
       }
-      else if (in[2] == 0x29 /*&& (in[3] == 0x28 || in[3] == 0x00)*/) { 
+      /*
+      else if (in[2] == 0x29 && (in[3] == 0x28 || in[3] == 0x00)) { 
         // 
         enhanced_phase = EnhancedPhase2;
         SetDataID(3);
@@ -383,6 +376,7 @@ void handle_data_560() {
 
         timeout_560 = 20 * _MODE_TIMEOUT_; // ACT packet is send every 1s
       }
+      */
     }
 
     // if at this point enhanced_phase is still ..Phase1, we received
@@ -394,14 +388,14 @@ void handle_data_560() {
   }
   else if (enhanced_phase == EnhancedPhase2) {
 
-    // received switch command 0x32 0xCD ?
+    // received switch mode command 0x32 0xCD ?
     // if yes, switch back to 306 mode
     if (in[0] == 0x32 && in[1] == 0xcd) {
       switch_to_603_mode();
       print_data(in, 2);
       received_parameter = false;
     }
-    // channels parameters? starting with 0x30 0xCF
+    // parameter set? starting with 0x30 0xCF
     else if (in[0] == 0x30 && in[1] == 0xcf) {
       // we received the parameters, check CRC
       if (!received_parameter) {
@@ -409,9 +403,8 @@ void handle_data_560() {
         const uint8_t crc = calculate_crc(in, 14);
       
         if (crc == in[14]) {
-          print_data(in, 15);
-          Serial.print(". ");
-          // decode_parameter(in);
+          // print_data(in, 15);
+          decode_parameter(in);
         }
         else {
           Serial.print(" CRC failure");
@@ -419,25 +412,25 @@ void handle_data_560() {
         received_parameter = true;
       }
       else {
-        // only for debugging: indicate, that we received a channel parameter packet
+        // only for debugging: indicate, that we received a parameter packet
         print_data(in, 3);
         Serial.print(" ... ");
       }
     }
+    /*
     else if (in[0] == 0xA1 && in[1] == 0x5E) {
       Serial.print(" ACT ");
       // print_data(in, 41);
       
       // switch_to_603_mode();
     }
+    */
     else {
       // for debugging: output first two bytes of packet
        print_data(in, 2);
     }
   }
 }
-
-//
 
 // console input
 
@@ -450,19 +443,12 @@ void HandleConsole(void) {
   while (Serial.available() > 0) {
     char c = Serial.read();
 
-    /*
-    if (c == '\r')
-      Serial.print("<CR>");
-    else if (c == '\n')
-      Serial.print("<LF>");
-    else 
-      Serial.print(c);
-    */
-    
     if (c == charCR) {
-      // eingabe mit 0 Zeichen abschliessen, vereinfacht die Verarbeitung
+      // Eingabe mit 0 Zeichen abschliessen, vereinfacht die Verarbeitung
       consoleBuffer[idxConsoleBuffer] = '\0';
-      ProcessConsoleInput();
+      if (ProcessConsoleInput()) {
+        received_packet = false; // clear flag, since it is set when sending data too
+      }
 
       ResetConsoleInput();
     }
@@ -581,7 +567,7 @@ bool ProcessConsoleInput(void) {
     else if (consoleBuffer[1] == '+') { // auf 'z+' testen
       if (oldIdx < 6) newIdx = oldIdx + 1;
     }
-    else if (consoleBuffer[1] == '-') { // auf 'z+' testen
+    else if (consoleBuffer[1] == '-') { // auf 'z-' testen
       if (oldIdx > 0) newIdx = oldIdx - 1;
     }
     if (newIdx != oldIdx) {
@@ -601,24 +587,21 @@ bool ProcessConsoleInput(void) {
 void setup() {
   
   Serial.begin(115200);
-  
-  pinMode(RED_LED_pin, OUTPUT);
 
   a7105.Init(A7105_regs);
 
   // a7105.DumpRegs();
-  
-  SetDataID(1);
- 
+
   a7105.Calibrate();  // calibrate A7105
 
   a7105.Strobe(A7105_STANDBY);
 
-  // falling edge marks end of the received packet
-  // -> 
+  // attach ISR to GIO2 pin
   received_packet = false;
   attachInterrupt(digitalPinToInterrupt(GIO2_pin), GIO2_ISR, FALLING);
 
+  // start in 603 mode
+  SetDataID(1);
   a7105.SetPacketLength(2);
 
   // start receiving mode
@@ -627,32 +610,26 @@ void setup() {
   ResetConsoleInput();
 }
 
-//############ MAIN LOOP ##############
 void loop() {
 
   if (received_packet) {
 
     received_packet = false;
 
-    /*
-    uint8_t v = a7105.ReadRegister(MODE_REG);
-    Serial.print("mode = 0");
-    Serial.println(v & 0x03, HEX);
-    */
     a7105.Strobe(A7105_RST_RDPTR);
     a7105.ReadData(a7105.GetPacketLength(), in);
 
+    // restart rx-mode  
     startRx();
 
-    /*
-    uint8_t v = a7105.ReadRegister(MODE_REG);
-    Serial.print("TRSR/TRER = ");
-    Serial.println((v & 0x03), HEX);
-    */
-
-    // process data
-    Serial.print((millis() - last_packet_time));
-    Serial.print("ms ");
+    unsigned long tt = (millis() - last_packet_time);
+    if (tt < 500) {
+      Serial.print((millis() - last_packet_time));
+      Serial.print("ms ");
+    }
+    else {
+      Serial.print("     ");
+    }
     print_id();
  
     if (rx_mode == mode_603) handle_data_603();
@@ -663,18 +640,14 @@ void loop() {
     memset(in, 0, sizeof(in));
     
     last_packet_time = millis();
-    // restart rx-mode
-    startRx();
   }
   else {
-    // HandleConsole();
-    // received_packet = false;
+    HandleConsole();
   }
 
   if (rx_mode == mode_560){
     // timeout check, may be we missed a packet
     if ((millis() - start_560_mode) > timeout_560) {
-      // timeout: switch back to 603 mode
       switch_to_603_mode();
       Serial.println("timeout -> switching back to 603 mode");
     }

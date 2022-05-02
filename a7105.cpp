@@ -1,11 +1,10 @@
 /******************************************************* 
- *  A7102REG.h
-* RF Chip-A7102 Hardware Definitions
+* A7105.cpp
+* RF Chip-A7105 Hardware 
 *
-* * This file provides the constants associated with the
-* AMICCOM A7102 device.
+* The class CA7105 for interfacing the A7105 chip
 *
-********************************************************************/
+*********************************************************/
 
 // #include "Arduino.h"
 #include "a7105.h"
@@ -104,7 +103,7 @@ void CA7105::WriteID(const uint8_t *ida) {
   CS_off;
   _spi_write(IDCODE_REG);
   for (int i = 0; i < 4; i++) {
-    _spi_write(*ida++);
+    _spi_write(ida[i]);
   }
   CS_on;
 }

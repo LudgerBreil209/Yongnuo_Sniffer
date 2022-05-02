@@ -1,5 +1,5 @@
-#ifndef A7105_INIT_H_
-#define A7105_INIT_H_
+#ifndef A7105_INIT_H_INCLUDE_
+#define A7105_INIT_H_INCLUDE_
 
 // yongnuo specific register setup
 // 0xff means do not set
@@ -19,8 +19,7 @@ static const uint8_t A7105_regs[] = {
   0x00, // RCOSC3_REG         0x09
   0x00, // CKO_REG            0x0A  // ECKOE = disable; CKOS = DCK / RCK; CKOE = disable
   0x01, // GPIO1_REG          0x0B  // GIO1E = enable; GIO1L = non-inverted; GIO1 = WTR
-// 0x21, // GPIO2_REG          0x0C // GIO2OE = High. Z; GIO2I = non inverted output; GIO2S = Preamble Detect Output
-  0x05, // 000001 0 1        0x0C  // GIO2OE = enable; GIO2I = non inverted output; GIO2S = FSYNC (frame sync)
+  0x05, // GPIO2_REG          0x0C  // GIO2OE = enable; GIO2I = non inverted output; GIO2S = FSYNC (frame sync)
   0x05, // CLOCK_REG          0x0D  // CGS = disable; XS = Crystal; CSC = 01b =F_MCLK/2;
   0x00, // DATARATE_REG       0x0E  // SDR = 0
   0x50, // PLL1_REG           0x0F  // CHN = 16
@@ -65,7 +64,7 @@ static const uint8_t A7105_regs[] = {
 // these frequency/channel values are specific to the yongnuo setup
 // the correspond to the 16 channels used by the yongnuo devices
 // 
-// they are written in PLL1_REG (0x0f) to set F_OFFSET
+// they are written into PLL1_REG (0x0f) to set F_OFFSET
 // F_LO_BASE = 2400,001 MHz, F_CHSP = 500 kHz
 // F_LO = F_LO_BASE + CHN * F_CHSP
 // SDR = 0 -> F_SYNK / 32 / 1 = 500 kBaud/s
@@ -73,4 +72,4 @@ const uint8_t channel_table[16] = {
   0x71, 0x6B, 0x65, 0x59, 0x53, 0x4D, 0x41, 0x3B, 0x35, 0x29, 0x23, 0x1D, 0x17, 0x11, 0x0B, 0x05
 };
 
-#endif
+#endif // A7105_INIT_H_INCLUDE_

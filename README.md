@@ -37,6 +37,7 @@ data id | payload length | payload | comment
 The 15 bytes contains always a complete parameter set for one of the six possible groups:
 
 offset | length | data (hex)
+------ | -------| ----------------------------
  0 | 2 | ID : fixed 30 CF 
  2 | 1 | group (bit 5 .. 7: A = 20; b = 40, ... ) or 0F (broadcast group ?)
  3 | 1 | (unknown)
@@ -57,6 +58,7 @@ offset | length | data (hex)
 In ACT mode the YN560-TX and YN560-IV sends repeatingly every second 41 bytes of data. The communication protocol is very similar and uses the same data id's:
 
 data id | payload length | payload | comment
+------- | -------- | --------------- | ------------
 35 99 9A 5A | 2 | 44 BB | ('wake up') ['normal' 603 packet]
 35 99 9A 5A | 2 | 32 CD | (change mode command) ['normal' 603 packet]
 35 99 9A 33 | 4 | 32 CD 29 28 | 
