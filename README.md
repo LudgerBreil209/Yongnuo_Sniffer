@@ -4,7 +4,7 @@
 
 While the basic 603 protocol, the communication between the Yongnuo RF-603 units for setting focus, flash and shutter release, has been around for a while, I was curious to see how the data is transferred from the Yongnuo YN560-TX or the Yongnuo Speedlite YN560-IV. With these two devices, in addition to the capabilities of the RF-603 base units, you can control the power, zoom factor, and some other parameters of the Speedlite 560 III and IV flashes.
 
-The 603 protocol was researched by robotfreak and I used his code ( [](https://github.com/robotfreak/YongnuoRF "RoboFreak/YongnuoRF") as a starting point for my experiments.
+The 603 protocol was researched by robotfreak and I used his code [RoboFreak/YongnuoRF](https://github.com/robotfreak/YongnuoRF) as a starting point for my experiments.
 
 While robotfreak explored the protocol by sniffing the programming of the A7105 chip on the SPI-bus, i explored the protocol by sniffing the data with an HackRF One SDR.
 
@@ -18,18 +18,15 @@ All Yongnuo devices I had for testing use an A7105 chip for wireless communicati
     allowing it to use several communication with the same frequency, but different data-id's
     3) the payload. While the payload in 603-mode is always 2 bytes, the payload in 560-mode differs (2, 4, 16 and 32 bytes)
 
-From robotfreak's work, it was known that the RF-603 protocol uses a fixed data id of 35 99 9A 5A and a fixed payload of 2 bytes and no CRC (although the A7105 chip provides built-in CRC processing). The following payload data (all in hex) is found:
-
-* release flash: 88 77
-* release shutter: 22 DD
-* set focus: 11 EE
+From robotfreak's work, it was known that the RF-603 protocol uses a fixed data id of 35 99 9A 5A and a fixed payload of 2 bytes and no CRC (although the A7105 chip provides built-in CRC processing). 
 
 Sending parameters to the speedlites is more complex and requires multiple data packets with different data id's. The complexity is probably required to be compatible with the simpler 603 devices.
 
 data id | payload length | payload | comment
+--------| -------------- | ------- | -------
 35 99 9A 5A | 2 | 44 BB | ('wake up') ['normal' 603 packet]
 35 99 9A 5A | 2 | 32 CD | (change mode command) ['normal' 603 packet]
-35 99 9A 33 | 4 | 32 CD 0F 0D | (YN560 IV sends .. 0F 0E) 
+35 99 9A 33 | 4 | 32 CD 0F 0D | (YN560 IV sends .. 0F 0E)  (is the last byte the length of the data ?)
 22 99 9A 33 | 15 | 14 bytes parameters + 1 byte CRC | 
 22 99 9A 33 | 2 | 32 CD | (change mode command)
 
@@ -45,7 +42,7 @@ offset | length | data (hex)
  5 | 1 | flash mode (0 = off; 1 = Multi-Flash; 2 = Manual)
  6 | 1 | (unknown)
  7 | 1 | (unknown)
- 8 | 1 | power level Manual mode (0 = 1/128, 1 = 1/128 + 0.3, ... 24 = 1/1)
+ 8 | 1 | power level Manual mode (00 = 1/128, 01 = 1/128 + 0.3, ... 18 = 1/1)
  9 | 1 | power level Multi-Flash mode
 10 | 1 | Multi-Flash mode: number of flashes
 11 | 1 | Multi-Flash mode: frequency
@@ -62,6 +59,6 @@ data id | payload length | payload | comment
 35 99 9A 5A | 2 | 44 BB | ('wake up') ['normal' 603 packet]
 35 99 9A 5A | 2 | 32 CD | (change mode command) ['normal' 603 packet]
 35 99 9A 33 | 4 | 32 CD 29 28 | 
-22 99 9A 33 | 41 | 42 bytes parameters | 
+22 99 9A 33 | 41 | 41 bytes parameters | 
 22 99 9A 33 | 2 | 32 CD | (change mode command)
 
