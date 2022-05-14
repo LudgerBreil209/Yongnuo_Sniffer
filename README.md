@@ -26,7 +26,7 @@ data id | payload length | payload | comment
 --------| -------------- | ------- | -------
 35 99 9A 5A | 2 | 44 BB | ('wake up') ['normal' 603 packet]
 35 99 9A 5A | 2 | 32 CD | (change mode command) ['normal' 603 packet]
-35 99 9A 33 | 4 | 32 CD 0F 0D | (YN560 IV sends .. 0F 0E)  (is the last byte the length of the data ?)
+35 99 9A 33 | 4 | 32 CD 0F 0D | (YN560 IV sends .. 0F 0E)
 22 99 9A 33 | 15 | 14 bytes parameters + 1 byte CRC | 
 22 99 9A 33 | 2 | 32 CD | (change mode command)
 
@@ -46,9 +46,9 @@ offset | length | data (hex)
  9 | 1 | power level Multi-Flash mode
 10 | 1 | Multi-Flash mode: number of flashes
 11 | 1 | Multi-Flash mode: frequency
-12 | 1 | (unknown)
-13 | 1 | (unknown)
-14 | 1 | CRC (simple sum off all bytes ignoring overflow)
+12 | 1 | (unknown) (non 0 with 560 IV)
+13 | 1 | (unknown) (non 0 with 560 IV)
+14 | 1 | CRC (simple sum off all bytes)
 
 
 ## Speedlite ACT

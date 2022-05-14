@@ -5,7 +5,7 @@
 // created by RobotFreak & Seegel Systeme
 // www.photofreak.de
 //
-// implemented the 560 protocol : Ludger Breil
+// 560 protocol implementation by : Ludger Breil
 
 #include "a7105.h"
 #include "a7105_init.h" // register initialization, frequence table
